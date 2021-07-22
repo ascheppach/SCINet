@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jul 21 18:40:46 2021
+Created on Tue Jul 13 12:33:30 2021
 
 @author: amadeu
 """
+
 
 
 import os
@@ -50,7 +51,11 @@ parser.add_argument('--batch_size', type=int, default=2, help='batch size')
 parser.add_argument('--seq_size', type=int, default=10, help='sequence size') # 200 oder 1000
 parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
 parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
+parser.add_argument('--test_epochs', type=int, default=10, help='num of testing epochs')
+
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
+parser.add_argument('--test_num_steps', type=int, default=2, help='number of iterations per testing epoch')
+
 parser.add_argument('--note', type=str, default='try', help='note for this run')
 
 parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
@@ -74,7 +79,7 @@ def main():
   # criterion = nn.BCELoss()
   
     
-  train_queue, valid_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size)
+  train_queue, test_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size)
     
     
   net_args = {
@@ -90,7 +95,8 @@ def main():
         
    
   train_losses = []
-  valid_losses = []
+  #valid_losses = []
+  test_losses = []
  
 
   for epoch in range(args.epochs):
@@ -105,19 +111,30 @@ def main():
       train_losses.append(train_loss)
      
       
-      if epoch % args.report_freq == 0:
+      #if epoch % args.report_freq == 0:
           
-          valid_loss = Valid(model, train_queue, valid_queue, optimizer, criterion, device, args.num_steps, args.report_freq)
+      #    valid_loss = Valid(model, train_queue, valid_queue, optimizer, criterion, device, args.num_steps, args.report_freq)
           
-          valid_losses.append(valid_loss)
+      #    valid_losses.append(valid_loss)
           
         
       trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
       np.save(trainloss_file, train_losses)
       
       
-      validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-      np.save(validloss_file, valid_losses)
+      #validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
+      #np.save(validloss_file, valid_losses)
+      
+      
+
+  for epoch in range(args.test_epochs): 
+      
+      test_loss = Valid(model, test_queue, optimizer, criterion, device, args.test_num_steps, args.report_freq)
+      
+      test_losses.append(train_loss)
+      
+  testloss_file = '{}-test_loss-{}'.format(args.save, train_start)
+  np.save(testloss_file, test_losses)
       
 
 
@@ -164,7 +181,7 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
     return objs.avg
     
 
-def Valid(model, train_loader, valid_loader, optimizer, criterion, device, num_steps, report_freq):
+def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_freq):
    
     objs = utilss.AvgrageMeter()
     model.eval()
