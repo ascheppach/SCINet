@@ -86,6 +86,9 @@ class SCI_Block(nn.Module): #
 
     def forward(self, x):
         #residual = x
+        #print(self.idx_even)
+        #print(x.shape)
+        #print(self.idx_even.shape)
         F_even = x[:,:,self.idx_even]
         F_odd = x[:,:,self.idx_odd]
         
@@ -129,13 +132,13 @@ class SCI_Net(nn.Module): #
         self.level_1_sci = SCI_Block(in_channels, expand, kernel, stride, padding, split, seq_sizes[0])
         self.level_2_sci = SCI_Block(in_channels, expand, kernel, stride, padding, split, seq_sizes[1])
         
-        self.fc = nn.Linear(20*1,20) #because 10 neurons/seq_len are now 8 neurons
+        self.fc = nn.Linear(20*1,1) #because 10 neurons/seq_len are now 8 neurons
 
         
     #    self.idx_even, self.idx_odd = split(seq_size)
         
         
-    def realign():
+    def realign(self):
         bl = np.array([0,10,5,15])
         reverse_idx = []
         reverse_idx.append(bl)
@@ -150,7 +153,7 @@ class SCI_Net(nn.Module): #
         
         return reverse_idx
     
-        self.reverse_idx = realign()
+        #self.reverse_idx = realign()
         
 
 
@@ -169,11 +172,11 @@ class SCI_Net(nn.Module): #
         F_even_23, F_odd_24 = self.level_2_sci(F_odd_1) 
         
         F_concat = torch.cat([F_even_21, F_odd_22, F_even_23, F_odd_24], dim=2)
-        
-        reverse_idx = realign()
-        
+        #print(F_concat)
+        reverse_idx = self.realign()
+        #print(reverse_idx)
         F_concat = F_concat[:,:,reverse_idx.long()]
-        
+        #print(F_concat)
         F_concat += residual
         
         output = self.fc(F_concat)
@@ -181,11 +184,21 @@ class SCI_Net(nn.Module): #
        
         return output
 
+class stackedSCI(nn.Module):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_sizes, SCI_Block):
+        super(stackedSCI, self).__init__()
+        self.k_1_sci = SCI_Net(1, 16, 3, 1, 2, split, [20, 10], SCI_Block)
+        self.k_2_sci = SCI_Net(1, 16, 3, 1, 2, split, [20, 10], SCI_Block)
+        
+    def forward(self, x):
+        
+        residual = x # [2,1,20]
+        X_1 = self.k_1_sci(x)
+        x_2 = torch.cat((x,X_k),2)[:,:,1:21]
+        X_2 = self.k_2_sci(x_2)
+        out = torch.cat((X_1,X_2),1)
 
-
-
-
-
+        return out
 
 seq_sizes = [20, 10]
 
