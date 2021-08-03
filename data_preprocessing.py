@@ -22,11 +22,11 @@ from sklearn.model_selection import train_test_split
 
 import math
 
-data_file = '/home/amadeu/Desktop/SCINet/data/traffic.txt'
-seq_size, batch_size = 15, 2
+data_file = 'data/traffic.txt'
+seq_size, batch_size, K = 15, 2, 2
 
         
-def data_preprocessing(data_file, seq_size, batch_size):
+def data_preprocessing(data_file, seq_size, batch_size, K):
     
     def open_data(data_file):
         with open(data_file, 'r') as f:
@@ -48,7 +48,7 @@ def data_preprocessing(data_file, seq_size, batch_size):
         return all_samples
 
 
-    def create_sequences(all_samples, seq_size): 
+    def create_sequences(all_samples, seq_size, K): 
         x = list()
         y = list()
         
@@ -65,10 +65,10 @@ def data_preprocessing(data_file, seq_size, batch_size):
                 # seq_size=10
                 idx = i + seq_size #sequence end
                 
-                if idx > len(sample)-1: 
+                if (idx+K) > len(sample)-1: 
                     break
                 
-                feat_seq, target_seq = sample[i:idx], sample[idx] # target labels for CNN
+                feat_seq, target_seq = sample[i:idx], sample[idx:(idx+K)] # target labels for CNN
                 x.append(feat_seq)
                 y.append(target_seq)
                     
@@ -90,7 +90,7 @@ def data_preprocessing(data_file, seq_size, batch_size):
     
     all_samples = open_data(data_file)#/home/scheppacha/data/trainset.txt')
     
-    x, y = create_sequences(all_samples, seq_size)
+    x, y = create_sequences(all_samples, seq_size, K)
     
     train_feat, valid_feat, train_targ, valid_targ = train_test_split(
             x, y, test_size=0.33)
@@ -104,4 +104,10 @@ def data_preprocessing(data_file, seq_size, batch_size):
     return train_loader, valid_loader
 
 
-
+# train_queue, test_queue = data_preprocessing(data_file, seq_size, batch_size, K)
+# for idx, (inputs, targets) in enumerate(train_queue):
+#         if idx > 2:
+#             break
+        
+#         input, y_true = inputs, targets
+#         print(y_true)
