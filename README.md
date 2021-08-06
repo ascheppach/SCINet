@@ -28,5 +28,5 @@ To get the data, download the zip file and store them in /data folder.
 To run ResNet for time series, enter following command (change data_directory to your corresponding data path)
 
 ```
-python train.py --epochs=50 --num_steps=3000 --batch_size=32 --data_directory='/home/amadeu/Desktop/SCINet/data/traffic.txt'
+python train.py --epochs=10 --k=2 --padding=1 --num_steps=100 --batch_size=2 --data_directory=data/traffic.txt
 ```
