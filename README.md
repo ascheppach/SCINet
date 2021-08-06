@@ -23,9 +23,8 @@ export PYTHONPATH="$PYTHONPATH:~/SCINet"
 ## Data
 To get the data, download the zip file and store them in /data folder.
 
-
-## Run ResNet for time series
-To run ResNet for time series, enter following command (change data_directory to your corresponding data path)
+## Run SCINet for time series
+To run SCINet for time series, enter following command (relative data_directory used, if error: check if your cd is the project repo folder)
 
 ```
 python train.py --epochs=10 --k=2 --padding=1 --num_steps=100 --batch_size=2 --data_directory=data/traffic.txt
