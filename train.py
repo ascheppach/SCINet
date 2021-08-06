@@ -3,7 +3,7 @@
 """
 Created on Tue Jul 13 12:33:30 2021
 
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
 
@@ -41,109 +41,98 @@ import data_preprocessing as dp
 import utilss
 from utilss import create_exp_dir
 
-import models.NCNet_RR_model as model
-import models.SCINet as model2
-
-
+import models.SCINet as model
 
 parser = argparse.ArgumentParser("train SCINet")
+# Data and save information
 parser.add_argument('--data_directory', type=str, default='data/traffic.txt', help='location of the data corpus')
-parser.add_argument('--batch_size', type=int, default=2, help='batch size')
-parser.add_argument('--seq_size', type=int, default=20, help='sequence size') # 200 oder 1000
-parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
-parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
-parser.add_argument('--test_epochs', type=int, default=10, help='num of testing epochs')
-
-parser.add_argument('--K', type=int, default=2, help='number of stacks')
-parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
-parser.add_argument('--test_num_steps', type=int, default=2, help='number of iterations per testing epoch')
-
-parser.add_argument('--note', type=str, default='try', help='note for this run')
-
-parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
 parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
 parser.add_argument('--save', type=str,  default='EXP',
                     help='path to save the final model')
+# Specification of Training 
+parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
+parser.add_argument('--val_epochs', type=int, default=10, help='num of validation epochs')
+parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
+parser.add_argument('--val_num_steps', type=int, default=2, help='number of iterations per valing epoch')
+parser.add_argument('--report_freq', type=int, default=5, help='validation report frequency')
+# General hyperparameters
+parser.add_argument('--batch_size', type=int, default=2, help='batch size')
+parser.add_argument('--seq_size', type=int, default=20, help='sequence size') # 200 oder 1000
+parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
+parser.add_argument('--k', type=int, default=4, help='kernel size')
+parser.add_argument('--stride', type=int, default=1, help='stride')
+parser.add_argument('--padding', type=int, default=2, help='padding')
+parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
+# Paper specific hyperparameters
+parser.add_argument('--h', type=int, default=4, help='extention of input channel')
+parser.add_argument('--K', type=int, default=2, help='number of stacks')
+parser.add_argument('--L', type=int, default=3, help='Number of SCI-Block')
+# Other
+parser.add_argument('--note', type=str, default='try', help='note for this run')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
 parser.add_argument('--grad_clip', type=float, default=5, help='gradient clipping')
-parser.add_argument('--report_freq', type=int, default=5, help='validation report frequency')
+
 args = parser.parse_args()
-
-
 args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
-#utilss.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
-
-# train_loader, num_steps = train_queue, 2
-
+# TRAINING LOOP
 def Train(model, train_loader, optimizer, criterion, device, num_steps, report_freq, K):
-    objs = utilss.AvgrageMeter()
     
+    # Initialize params
+    objs = utilss.AvgrageMeter()
     total_loss = 0
     start_time = time.time()
     
+    # run *num_steps* training steps 
     for idx, (inputs, targets) in enumerate(train_loader):
         if idx > num_steps:
             break
-        
+        # define input and targets for step
         input, y_true = inputs, targets
-        #print("Input", input.shape)
-        input = input.reshape(2, 1, args.seq_size)
-        #print("Input after reshape", input.shape)
-        y_true = y_true.reshape(2, K, 1)
+        # reshape for consistent size in calculation
+        # REVIEW: Why do we need the 1?
+        input = input.reshape(args.batch_size, 1, args.seq_size)
+        y_true = y_true.reshape(args.batch_size, K, 1)
         
-        #print("Input after reshape", input.shape)
+        # train the model
         model.train()
-        #input = input.transpose(1, 2).float()
-        
         input = input.to(device)#.cuda()
         
-        #batch_size = input.size(0)
-    
+        # predict, calculate loss, update weights
         optimizer.zero_grad()
-         
         y_pred = model(input.float()) 
-        #print("predtrain",y_pred.float(), "truetrain",y_true.float())
-        
         loss = criterion(y_pred.float(), y_true.float())
-
         loss.backward(retain_graph=True)
         optimizer.step()
-       
         objs.update(loss.data, args.batch_size) # calculate running average of loss
        
     return objs.avg
-    
 
+# VALIDATION LOOP
 def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_freq, K):
    
+    # Initialize params
     objs = utilss.AvgrageMeter()
     model.eval()
 
     with torch.no_grad():
-        
+        # run *val_num_steps* validation steps 
         for idx, (inputs, labels) in enumerate(valid_loader):
-            
-            
             if idx > num_steps:
-                break
-            
+                break            
+            # define input and targets for step
             input, y_true = inputs, labels
-            #print("Input", input.shape)
-            input = input.reshape(2, 1, args.seq_size)
-            #print("Input after reshape", input.shape)
-            
-            y_true = y_true.reshape(2, K, 1)
+            # reshape for consistent size in calculation
+            # REVIEW: Why do we need the 1?
+            input = input.reshape(args.batch_size, 1, args.seq_size)
+            y_true = y_true.reshape(args.batch_size, K, 1)
 
+            # predict, calculate loss, save value
             input = input.to(device)#.cuda()  
-            
-            y_pred = model(input.float()) #, (state_h, state_c))
-            #print("predval",y_pred.float(), "trueval",y_true.float())
+            y_pred = model(input.float())
             loss = criterion(y_pred.float(), y_true.float())
-                
             objs.update(loss.data, args.batch_size)
-    
-    return objs.avg #top1.avg, objs.avg
+    return objs.avg 
 
 
 
@@ -151,57 +140,47 @@ def main():
     global model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # criterion = nn.BCELoss()
-    train_queue, test_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size, args.K)
+    # preprocess data
+    train_queue, val_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size, args.K)
         
-    # net_args = {
-    #   "rr_block": model.ResidualBlock,
-    #   "num_blocks": [2, 2, 2, 2]
-    #   }
-    #model = model.ResNet(**net_args).float().to(device)
-    model = model2.stackedSCI(1, 16, 3, 1, 2, model2.split, [20, 10], model2.SCI_Block).float().to(device)
-    #model = model.ResNet().to(device)
+    # define hyperparameters
+    net_args = {
+        "in_channels" : 1, # because traffic data one dimensional 
+        "expand" : args.h, 
+        "kernel" : args.k, 
+        "stride" : args.stride, 
+        "padding" : args.padding, 
+        "split" : model.split, 
+        "seq_size" : args.seq_size, 
+        "SCI_Block" : model.SCI_Block, 
+        "K" : args.K, 
+        "L" : args.L
+        }
+    # define model, loss, and optimizer
+    model = model.stackedSCI(**net_args).float().to(device)
     criterion = nn.MSELoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate)
-           
+    # initialize loss 
     train_losses = []
-    #valid_losses = []
-    test_losses = []
+    val_losses = []
  
-
+    # run *epoch* epochs
     for epoch in range(args.epochs):
-       
+        # get timestamp for each epoch
         train_start = time.strftime("%Y%m%d-%H%M")
-    
+        # train model and save loss value
         train_loss = Train(model, train_queue, optimizer, criterion, device, args.num_steps, args.report_freq, args.K)
-    
         train_losses.append(train_loss)
-       
-        #if epoch % args.report_freq == 0:
-           
-        #    valid_loss = Valid(model, train_queue, valid_queue, optimizer, criterion, device, args.num_steps, args.report_freq)
-           
-        #    valid_losses.append(valid_loss)
-           
-         
         trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-        np.save(trainloss_file, train_losses)
-       
-       
-        #validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-        #np.save(validloss_file, valid_losses)
+        np.save(trainloss_file, train_losses)  
         print("Epoch", epoch, " Train loss: ", train_loss)
-      
-
-#    for epoch in range(args.test_epochs): 
+        # validate model and save loss value
+        val_loss = Valid(model, val_queue, optimizer, criterion, device, args.val_num_steps, args.report_freq, args.K)   
+        val_losses.append(val_loss)
+        print("Epoch", epoch, " Validation loss: ", val_loss)
         
-        test_loss = Valid(model, test_queue, optimizer, criterion, device, args.test_num_steps, args.report_freq, args.K)
-        
-        test_losses.append(test_loss)
-        print("Epoch", epoch, " Test loss: ", test_loss)
-        
-    testloss_file = '{}-test_loss-{}'.format(args.save, train_start)
-    np.save(testloss_file, test_losses)
+    valloss_file = '{}-val_loss-{}'.format(args.save, train_start)
+    np.save(valloss_file, val_losses)
       
 
 

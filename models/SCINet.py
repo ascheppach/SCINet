@@ -4,40 +4,29 @@
 """
 Created on Thu Jul 22 08:07:31 2021
 
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
-
-
+from argparse import Namespace
+from collections import Counter
 import csv
-
+import gc
+from itertools import product
 import torch.nn as nn
 import torch.nn.functional as F
-
-import numpy as np
-from collections import Counter
-from argparse import Namespace
-import pandas as pd
-
-import os
-
-from numpy import array
 import torch
-import gc
-from tqdm import tqdm_notebook as tqdm
 from torch.utils.data import Dataset,DataLoader
 import numpy as np
+from numpy import array
+import os
+import pandas as pd
 
+from tqdm import tqdm_notebook as tqdm
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-
 # split into even and uneven
-
-
 # indexing for F_even
-
 def split(seq_size):
     idx_odd = torch.Tensor(np.arange(0,seq_size,2)).to(device) # because 1th, 3th... element ist 0th, 2th ... in python
     idx_odd = idx_odd.long()
@@ -49,8 +38,6 @@ def split(seq_size):
     # create F_even and F_odd
     
     return idx_even, idx_odd
-
-
 
 
 def conv_op(in_channels, expand, kernel, stride, padding): # 
@@ -65,36 +52,22 @@ def conv_op(in_channels, expand, kernel, stride, padding): #
     return convs
 
 
-
-#conv = conv_op(1, 16, 2, 1, 5)
-#x = conv(x)
-
-
-
-
 class SCI_Block(nn.Module): # 
     def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size):
         super(SCI_Block, self).__init__()
         
+        # convolutional layer for each operation
         self.nu = conv_op(in_channels, expand, kernel, stride, padding)
         self.psi = conv_op(in_channels, expand, kernel, stride, padding)
         self.ro = conv_op(in_channels, expand, kernel, stride, padding)
         self.phi = conv_op(in_channels, expand, kernel, stride, padding)
         
         self.idx_even, self.idx_odd = split(seq_size)
-        
 
     def forward(self, x):
-        #residual = x
-        #print(self.idx_even)
-        #print(x.shape)
-        #print(self.idx_even.shape)
+        # split sequence to even/odd block
         F_even = x[:,:,self.idx_even]
         F_odd = x[:,:,self.idx_odd]
-        
-        # print(F_even.shape)
-        # print(torch.exp(self.psi(F_odd)).shape)
-
         F_even_s = F_even * torch.exp(self.psi(F_odd))
         F_odd_s = F_odd * torch.exp(self.phi(F_even))
 
@@ -102,14 +75,89 @@ class SCI_Block(nn.Module): #
         # on page 4 they do an addition for F_odd and subtraction for F_even
         F_odd_final = F_even_s + self.ro(F_even_s)       
 
-       
         return F_even_final, F_odd_final
-    
-    
 
 
+class SCI_Net(nn.Module): # 
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L):
+        super(SCI_Net, self).__init__()
+        for i in range(L):
+            exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
+        self.fc = nn.Linear(seq_size*1,1) #because 10 neurons/seq_len are now 8 neurons
+        self.L = L
+        self.seq_size = seq_size
+        
+    def realign(self):
+        def pre_realign(v,combination):
+            for i in range(len(combination)):
+                if combination[i]==0 :
+                    v=v[::2]
+                else :
+                    v=v[1::2]
+            return v
+        
+        ve=list(range(self.seq_size))
+        output=list()
+        a=np.array(list(range(2)))
+        points=product(a,repeat=self.L)
+        mat=(list(points))
+        for j in range((2**self.L)):
+            output.extend(pre_realign(v=ve,combination=mat[j]))
+        reverse_idx = torch.Tensor(output).to(device)
+        reverse_idx = torch.Tensor(reverse_idx).long()
+        a = np.row_stack([reverse_idx.tolist(), list(range(self.seq_size))])
+        a = a[:, a[0, :].argsort()]
+        return a[1,:]
+        
+
+############ NEEDS TO BE SOFTCODED
+    def forward(self, x):
+        
+        residual = x # [2,1,20]
+        
+        ## Level 1
+        F_even_1, F_odd_1  = self.sci_level_0(x)
+        
+        ## Level 2
+        F_even_21, F_odd_22 = self.sci_level_1(F_even_1) 
+        
+        F_even_23, F_odd_24 = self.sci_level_1(F_odd_1) 
+        
+        F_concat = torch.cat([F_even_21, F_odd_22, F_even_23, F_odd_24], dim=2)
+        reverse_idx = self.realign()
+        F_concat = F_concat[:,:,reverse_idx]
+        F_concat += residual
+        
+        output = self.fc(F_concat)
+
+       
+        return output
+
+class stackedSCI(nn.Module):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, K, L):
+        super(stackedSCI, self).__init__()
+        self.K = K
+        # Create SCINet block layers for each K
+        for i in range(K):
+            exec("self.sci_stacK_" + str(i) + 
+                 "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L)")
+
+    def forward(self, x):
+        x_0 = x
+        X = list()
+        # stack K SCINets
+        for j in range(self.K):
+            # Save each SCINet in list X
+            exec("X" "= X.append(self.sci_stacK_" + str(j) + "(x_" + str(j) + "))")
+            # Save prediction in x_(j+1) in order to create Tensor containing all predictions for loss computation
+            exec("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:21]")
+        # reshape the output to match with true values
+        out = torch.stack(X).reshape(-1,self.K,1)
+        return out
+
+
+## Testrun
 x = torch.rand(2,1,20) # input with batch_size 2 and sequence length 20
-
 
 # Level 1
 level_1_sci = SCI_Block(1,16, 3, 1, 2, split, 20)
@@ -119,96 +167,22 @@ level_2_sci = SCI_Block(1, 16, 3, 1, 2, split, 10)
 F_even_2, F_odd_2 = level_2_sci(F_even_1) 
 F_even_2, F_odd_2 = level_2_sci(F_odd_1) 
 
-
-# in_channels, expand, kernel, stride, padding, split, seq_sizes = 1, 16, 3, 1, 2, split, [20, 10]
-
-
-
-
-class SCI_Net(nn.Module): # 
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_sizes, SCI_Block):
-        super(SCI_Net, self).__init__()
-        
-        self.level_1_sci = SCI_Block(in_channels, expand, kernel, stride, padding, split, seq_sizes[0])
-        self.level_2_sci = SCI_Block(in_channels, expand, kernel, stride, padding, split, seq_sizes[1])
-        
-        self.fc = nn.Linear(20*1,1) #because 10 neurons/seq_len are now 8 neurons
-
-        
-    #    self.idx_even, self.idx_odd = split(seq_size)
-        
-        
-    def realign(self):
-        bl = np.array([0,10,5,15])
-        reverse_idx = []
-        reverse_idx.append(bl)
-        for i in range(4):
-            bl = bl + 1
-            reverse_idx.append(bl)
-            
-        reverse_idx = np.concatenate(reverse_idx)
-        reverse_idx = torch.Tensor(reverse_idx).to(device)
-        reverse_idx = torch.Tensor(reverse_idx).long()
-    
-        
-        return reverse_idx
-    
-        #self.reverse_idx = realign()
-        
-
-
-    def forward(self, x):
-        
-        residual = x # [2,1,20]
-        
-        ## Level 1
-        F_even_1, F_odd_1  = self.level_1_sci(x)
-        # F_even_1, F_odd_1 = level_1_sci(x) 
-        
-        ## Level 2
-        #level_2_sci = SCI_Block(1, 16, 3, 1, 2, split, 10)
-        F_even_21, F_odd_22 = self.level_2_sci(F_even_1) 
-        
-        F_even_23, F_odd_24 = self.level_2_sci(F_odd_1) 
-        
-        F_concat = torch.cat([F_even_21, F_odd_22, F_even_23, F_odd_24], dim=2)
-        #print(F_concat)
-        reverse_idx = self.realign()
-        #print(reverse_idx)
-        F_concat = F_concat[:,:,reverse_idx.long()]
-        #print(F_concat)
-        F_concat += residual
-        
-        output = self.fc(F_concat)
-
-       
-        return output
-
-class stackedSCI(nn.Module):
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_sizes, SCI_Block):
-        super(stackedSCI, self).__init__()
-        self.k_1_sci = SCI_Net(1, 16, 3, 1, 2, split, [20, 10], SCI_Block)
-        self.k_2_sci = SCI_Net(1, 16, 3, 1, 2, split, [20, 10], SCI_Block)
-        
-    def forward(self, x):
-        
-        residual = x # [2,1,20]
-        X_1 = self.k_1_sci(x)
-        x_2 = torch.cat((x,X_k),2)[:,:,1:21]
-        X_2 = self.k_2_sci(x_2)
-        out = torch.cat((X_1,X_2),1)
-
-        return out
-
-seq_sizes = [20, 10]
-
-sci_net = SCI_Net(1, 16, 3, 1, 2, split, seq_sizes, SCI_Block)
+sci_net = SCI_Net(1, 16, 3, 1, 2, split, 20, SCI_Block, 2)
 
 X_k = sci_net(x)
 
+stacki = stackedSCI(in_channels = 1, 
+                    expand = 16, 
+                    kernel = 2, 
+                    stride = 1, 
+                    padding = 1, 
+                    split = split, 
+                    seq_size = 20, 
+                    SCI_Block = SCI_Block, 
+                    K = 2, 
+                    L = 2).float().to(device)
 
-
-
+XK = stacki(x)
 
 
 

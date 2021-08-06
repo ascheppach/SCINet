@@ -3,7 +3,7 @@
 """
 Created on Fri Dec 25 19:47:29 2020
 
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
 ######## data preprocessing #####
@@ -68,6 +68,7 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
                 if (idx+K) > len(sample)-1: 
                     break
                 
+                # add K positions to label to predict the K next timesteps
                 feat_seq, target_seq = sample[i:idx], sample[idx:(idx+K)] # target labels for CNN
                 x.append(feat_seq)
                 y.append(target_seq)
@@ -102,12 +103,3 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
     valid_loader = torch.utils.data.DataLoader(valid, batch_size, shuffle=False)
   
     return train_loader, valid_loader
-
-
-# train_queue, test_queue = data_preprocessing(data_file, seq_size, batch_size, K)
-# for idx, (inputs, targets) in enumerate(train_queue):
-#         if idx > 2:
-#             break
-        
-#         input, y_true = inputs, targets
-#         print(y_true)
