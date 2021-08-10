@@ -50,7 +50,7 @@ parser.add_argument('--model', type=str, default='DanQ', help='path to save the 
 parser.add_argument('--save', type=str,  default='EXP',
                     help='path to save the final model')
 # Specification of Training 
-parser.add_argument('--epochs', type=int, default=10, help='num of training epochs')
+parser.add_argument('--epochs', type=int, default=10, help='num of training epochs') # 100
 parser.add_argument('--val_epochs', type=int, default=10, help='num of validation epochs')
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
 parser.add_argument('--val_num_steps', type=int, default=2, help='number of iterations per valing epoch')
@@ -205,4 +205,5 @@ class Correlation(nn.Module):
         target_dev = target-target.mean()
         predict_dev = predict-predict.mean()
         return (target_dev*predict_dev).mean()/torch.sqrt((target_dev.pow(2)*predict_dev.pow(2))).mean()
+    
     
