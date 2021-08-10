@@ -56,17 +56,17 @@ parser.add_argument('--num_steps', type=int, default=2, help='number of iteratio
 parser.add_argument('--val_num_steps', type=int, default=2, help='number of iterations per valing epoch')
 parser.add_argument('--report_freq', type=int, default=5, help='validation report frequency')
 # General hyperparameters
-parser.add_argument('--batch_size', type=int, default=2, help='batch size')
-parser.add_argument('--seq_size', type=int, default=20, help='sequence size') # 200 oder 1000
-parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
-parser.add_argument('--k', type=int, default=4, help='kernel size')
+parser.add_argument('--batch_size', type=int, default=2, help='batch size') # 16 in paper
+parser.add_argument('--seq_size', type=int, default=20, help='sequence size') # 200 oder 1000 -> paper:168 as look-back window? And should we call it T to resemble the paper?
+parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate') # 0.0005 in paper
+parser.add_argument('--k', type=int, default=4, help='kernel size') # 5 in paper
 parser.add_argument('--stride', type=int, default=1, help='stride')
 parser.add_argument('--padding', type=int, default=2, help='padding')
 parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
 # Paper specific hyperparameters
-parser.add_argument('--h', type=int, default=4, help='extention of input channel')
-parser.add_argument('--K', type=int, default=2, help='number of stacks')
-parser.add_argument('--L', type=int, default=3, help='Number of SCI-Block')
+parser.add_argument('--h', type=int, default=4, help='extention of input channel') # 2 in paper
+parser.add_argument('--K', type=int, default=2, help='number of stacks') # 1 in paper
+parser.add_argument('--L', type=int, default=3, help='Number of SCI-Block levels') # 3 in paper
 # Other
 parser.add_argument('--note', type=str, default='try', help='note for this run')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
@@ -188,3 +188,21 @@ def main():
     
 if __name__ == '__main__':
   main() 
+  
+    
+class RSELoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, predict, target):
+        return torch.sqrt((predict-target).pow(2).sum())/torch.sqrt((target-target.mean()).pow(2).sum())
+    
+class Correlation(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, predict, target):
+        target_dev = target-target.mean()
+        predict_dev = predict-predict.mean()
+        return (target_dev*predict_dev).mean()/torch.sqrt((target_dev.pow(2)*predict_dev.pow(2))).mean()
+    

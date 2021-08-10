@@ -36,8 +36,7 @@ def split(seq_size):
     idx_even = idx_even.long()
     
     # create F_even and F_odd
-    
-    return idx_even, idx_odd
+    return idx_even, idx_odd 
 
 
 def conv_op(in_channels, expand, kernel, stride, padding): # 
@@ -87,51 +86,66 @@ class SCI_Net(nn.Module): #
         self.L = L
         self.seq_size = seq_size
         
-    def realign(self):
-        def pre_realign(v,combination):
-            for i in range(len(combination)):
-                if combination[i]==0 :
-                    v=v[::2]
-                else :
-                    v=v[1::2]
-            return v
         
-        ve=list(range(self.seq_size))
-        output=list()
-        a=np.array(list(range(2)))
-        points=product(a,repeat=self.L)
-        mat=(list(points))
-        for j in range((2**self.L)):
-            output.extend(pre_realign(v=ve,combination=mat[j]))
+    def realign(self): # realign elements to reverse the odd even splitting
+        
+        def pre_realign(v, combination):
+            # v a list, combination a binary list
+            # in each step v is reduced by eliminating elements of v with odd or even indices, depending on elements of binary list 'combination'
+            for i in range(len(combination)):
+                if combination[i] == 0 :
+                    # reduce v to those elements of v with even index
+                    v = v[::2]
+                else :
+                    # reduce v to those elements of v with odd index
+                    v = v[1::2]
+            return v 
+        
+        ve = list(range(self.seq_size)) # list of [0, 1, ... ,(n-1)]
+        output = list()
+        a = np.array(list(range(2))) 
+        points = product(a, repeat = self.L) # generates a matrix of all possible k-length combinations of 0 and 1 
+        mat = (list(points))
+        
+        for j in range((2**self.L)): # for each reduced component of 've'
+            output.extend(pre_realign(v = ve, combination = mat[j]))
+             #reduce ve by iteratively eliminating elements with odd or even indices according to the elements of the next row of 'mat', then append the reduced vector to 'output'
+
         reverse_idx = torch.Tensor(output).to(device)
         reverse_idx = torch.Tensor(reverse_idx).long()
         a = np.row_stack([reverse_idx.tolist(), list(range(self.seq_size))])
         a = a[:, a[0, :].argsort()]
+        
         return a[1,:]
         
-
-############ NEEDS TO BE SOFTCODED
+        
     def forward(self, x):
         
-        residual = x # [2,1,20]
+        residual = x
+        F_01 = x
+        for l in range(1, self.L + 1):
+            i = 1
+            j = 1
+            #print(" ")
+            while i <= 2**l:
+                exec("F_" + str(l) + str(i) + ", F_" + str(l) + str(i+1) +
+                      " = self.sci_level_" 
+                      + str(l-1) + "(F_" + str(l-1) + str(j) + ")")
+                i += 2
+                j += 1
         
-        ## Level 1
-        F_even_1, F_odd_1  = self.sci_level_0(x)
+        F_concat = F_01
+        exec("F_concat = F_" + str(self.L) + "1")  
+        for i in range(2, 2**self.L + 1):
+            exec("F_concat = torch.cat([F_concat, F_"+ str(self.L) + str(i) + "], dim = 2)")   
         
-        ## Level 2
-        F_even_21, F_odd_22 = self.sci_level_1(F_even_1) 
-        
-        F_even_23, F_odd_24 = self.sci_level_1(F_odd_1) 
-        
-        F_concat = torch.cat([F_even_21, F_odd_22, F_even_23, F_odd_24], dim=2)
         reverse_idx = self.realign()
         F_concat = F_concat[:,:,reverse_idx]
         F_concat += residual
         
         output = self.fc(F_concat)
-
-       
         return output
+
 
 class stackedSCI(nn.Module):
     def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, K, L):
@@ -159,18 +173,8 @@ class stackedSCI(nn.Module):
 ## Testrun
 x = torch.rand(2,1,20) # input with batch_size 2 and sequence length 20
 
-# Level 1
-level_1_sci = SCI_Block(1,16, 3, 1, 2, split, 20)
-F_even_1, F_odd_1 = level_1_sci(x) 
-# Level 2
-level_2_sci = SCI_Block(1, 16, 3, 1, 2, split, 10)
-F_even_2, F_odd_2 = level_2_sci(F_even_1) 
-F_even_2, F_odd_2 = level_2_sci(F_odd_1) 
-
 sci_net = SCI_Net(1, 16, 3, 1, 2, split, 20, SCI_Block, 2)
-
 X_k = sci_net(x)
-
 stacki = stackedSCI(in_channels = 1, 
                     expand = 16, 
                     kernel = 2, 
@@ -184,6 +188,34 @@ stacki = stackedSCI(in_channels = 1,
 
 XK = stacki(x)
 
+        
+# Level 1
+sci_level_0 = SCI_Block(1,16, 3, 1, 2, split, 20)
+F_01 = sci_level_0(x) 
+# Level 2
+sci_level_1 = SCI_Block(1, 16, 3, 1, 2, split, 10)
+F_21 = sci_level_1(F_01[0]) 
+F_22 = sci_level_1(F_01[1]) 
+# Level 3
+sci_level_2 = SCI_Block(1, 16, 3, 1, 2, split, 20)
+sci_level_3 = SCI_Block(1, 16, 3, 1, 2, split, 10)
 
+L = 2
+residual = x
+F_01 = x
+for l in range(1, L + 1):
+    i = 1
+    j = 1
+    #print(" ")
+    while i <= 2**l:
+        exec("F_" + str(l) + str(i) + ", F_" + str(l) + str(i+1) +
+              " = sci_level_" 
+              + str(l-1) + "(F_" + str(l-1) + str(j) + ")")
+        i += 2
+        j += 1
 
+F_concat = F_01
+exec("F_concat = F_" + str(L) + "1")   
+for i in range(2, 2**L + 1):
+    exec("F_concat = torch.cat([F_concat, F_"+ str(L) + str(i) + "], dim = 2)")   
 
