@@ -86,18 +86,18 @@ class SCI_Block(nn.Module): #
 
 
 class SCI_Net(nn.Module): # 
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L, horizon):
         super(SCI_Net, self).__init__()
         for i in range(L):
             # print(str(seq_size),str(2**i))
             #print("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
             exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
-        self.fc = nn.Linear(seq_size*1,1) #because 10 neurons/seq_len are now 8 neurons
+        self.fc = nn.Linear(seq_size*1, horizon) #because 10 neurons/seq_len are now 8 neurons
         self.L = L
         self.seq_size = seq_size
         
         
-    def realign(self): # realign elements to reverse the odd even splitting
+    def realign(self): # realign elements to reverse the odd-even splitting
         
         def pre_realign(v, combination):
             # v a list, combination a binary list
@@ -131,9 +131,12 @@ class SCI_Net(nn.Module): #
         
     def forward(self, x):
         
-        residual = x
-        F_01 = x
+        residual = x # residual connection in SCInet
+        F_01 = x 
         exec("F_" + str(self.L) + "1 = list()")
+        # Use previously defined SCI-Blocks (sci_level_...) on every level of SCInet
+        # Output of a SCI-Block are two tensors (even and odd)
+        # In the next level the next SCI-Block is used on both of those tensors and so on, until level L is reached
         for l in range(1, self.L + 1):
             i = 1
             j = 1
@@ -144,32 +147,34 @@ class SCI_Net(nn.Module): #
                       + str(l-1) + "(F_" + str(l-1) + str(j) + ")")
                 i += 2
                 j += 1
-
+                
+        # All outputs of the last level have to be concatenated
         F_concat = F_01
         F_concat = eval("F_" + str(self.L) + "1")
         
         for i in range(2, 2**self.L + 1):
             F_concat = eval("torch.cat([F_concat, F_"+ str(self.L) + str(i) + "], dim = 2)")       
         
-        
+        # After concatenation, the odd-even splitting order is reversed
         reverse_idx = self.realign()
-        
         F_concat = F_concat[:,:,reverse_idx]
         F_concat += residual
         
+        # Finally a fully connected layer is used to get the output
         output = self.fc(F_concat)
         return output
 
 
 class stackedSCI(nn.Module):
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, K, L):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, K, L, horizon):
         super(stackedSCI, self).__init__()
         self.K = K
         self.seq_size = seq_size
+        self.horizon = horizon
         # Create SCINet block layers for each K
         for i in range(K):
             exec("self.sci_stacK_" + str(i) + 
-                 "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L)")
+                 "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L, horizon)")
                     #(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L)
     def forward(self, x):
         x_0 = x
@@ -186,14 +191,15 @@ class stackedSCI(nn.Module):
             #print(eval("torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)"))
             exec("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
         # reshape the output to match with true values
-        out = torch.stack(X).reshape(-1,self.K,1)
+        # out = torch.stack(X).reshape(-1,self.K,1)
+        out = torch.stack(X).reshape(-1, self.K, self.horizon)
         return out
 
 
 ## Testrun
 x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 20
 
-sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, SCI_Block, 3)
+sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, SCI_Block, 3, 3)
 X_k = sci_net(x)
 stacki = stackedSCI(in_channels = 1, 
                     expand = 10,
@@ -204,10 +210,14 @@ stacki = stackedSCI(in_channels = 1,
                     seq_size = 40,
                     SCI_Block = SCI_Block,
                     K = 4,
-                    L = 3).float().to(device)
+                    L = 3,
+                    horizon = 3).float().to(device)
 
 XK = stacki(x)
 
+K = 4
+horizon = 3
+XK.reshape(-1, K, horizon)
 
 # Level 1
 # sci_level_0 = SCI_Block(1,16, 3, 1, 2, split, 40)

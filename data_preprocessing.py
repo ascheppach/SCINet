@@ -94,7 +94,7 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
     x, y = create_sequences(all_samples, seq_size, K)
     
     train_feat, valid_feat, train_targ, valid_targ = train_test_split(
-            x, y, test_size=0.33)
+            x, y, test_size=0.1) # 10% in paper
     
     train = get_data(train_feat, train_targ)# 
     valid = get_data(valid_feat, valid_targ)
