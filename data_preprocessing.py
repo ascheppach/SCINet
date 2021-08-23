@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec 25 19:47:29 2020
+Created on Mon Aug 23 18:32:30 2021
 
-@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
+@author: amadeu
 """
+
 
 ######## data preprocessing #####
 import torch
@@ -22,8 +23,8 @@ from sklearn.model_selection import train_test_split
 
 import math
 
-data_file = 'data/traffic.txt'
-seq_size, batch_size, K = 15, 2, 2
+# data_file = 'data/traffic.txt'
+# seq_size, batch_size, K = 15, 2, 2
 
         
 def data_preprocessing(data_file, seq_size, batch_size, K):
@@ -57,7 +58,7 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
         #valid_len = math.floor(0.2*data_len)
         #test_len = math.floor(0.2*data_len)
         
-        for sample in all_samples[0:5]: # change here
+        for sample in all_samples: # change here
             
             for i in range(len(sample)):
                 
@@ -93,13 +94,20 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
     
     x, y = create_sequences(all_samples, seq_size, K)
     
+    rest_feat, test_feat, rest_targ, test_targ = train_test_split(
+            x, y, test_size=0.1) # 10%
+    
     train_feat, valid_feat, train_targ, valid_targ = train_test_split(
-            x, y, test_size=0.1) # 10% in paper
+            rest_feat, rest_targ, test_size=0.222) # 10% in paper
     
     train = get_data(train_feat, train_targ)# 
     valid = get_data(valid_feat, valid_targ)
+    test = get_data(test_feat, test_targ)
+
     
     train_loader = torch.utils.data.DataLoader(train, batch_size, shuffle=True)#  shuffle ensures random choices of the sequences
-    valid_loader = torch.utils.data.DataLoader(valid, batch_size, shuffle=False)
+    valid_loader = torch.utils.data.DataLoader(valid, batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test, batch_size, shuffle=False)
+
   
-    return train_loader, valid_loader
+    return train_loader, valid_loader, test_loader
