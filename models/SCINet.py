@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
-Created on Thu Jul 22 08:07:31 2021
+Created on Mon Aug 23 10:18:28 2021
 
-@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
+@author: amadeu
 """
 
 from argparse import Namespace
@@ -126,7 +125,7 @@ class SCI_Net(nn.Module): #
         a = np.row_stack([reverse_idx.tolist(), list(range(self.seq_size))])
         a = a[:, a[0, :].argsort()]
         
-        return a[1,:]
+        return a[1,:].to(device)
         
         
     def forward(self, x):
@@ -252,5 +251,3 @@ XK.reshape(-1, K, horizon)
 # for i in range(2, 2**L + 1):
 #     exec("F_concat = torch.cat([F_concat, F_"+ str(L) + str(i) + "], dim = 2)")   
 # F_concat
-
-        
