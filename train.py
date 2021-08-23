@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 13 12:33:30 2021
+Created on Mon Aug 23 10:04:15 2021
 
-@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
+@author: amadeu
 """
-
-
 
 import os
 import sys
@@ -72,6 +70,9 @@ parser.add_argument('--L', type=int, default=3, help='Number of SCI-Block levels
 parser.add_argument('--note', type=str, default='try', help='note for this run')
 parser.add_argument('--seed', type=int, default=4321, help='random seed') # 4321 in paper
 parser.add_argument('--grad_clip', type=float, default=5, help='gradient clipping')
+
+parser.add_argument('--model_path', type=str,  default='./run1.pth',
+                    help='path to save the trained model')
 
 args = parser.parse_args()
 args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
@@ -174,16 +175,20 @@ def main():
         # train model and save loss value
         train_loss = Train(model, train_queue, optimizer, criterion, device, args.num_steps, args.report_freq, args.horizon)
         train_losses.append(train_loss)
-        trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-        np.save(trainloss_file, train_losses)  
         print("Epoch", epoch, " Train loss: ", train_loss)
+        
         # validate model and save loss value
         val_loss = Valid(model, val_queue, optimizer, criterion, device, args.val_num_steps, args.report_freq, args.horizon)   
         val_losses.append(val_loss)
         print("Epoch", epoch, " Validation loss: ", val_loss)
         
+    torch.save(model, args.model_path)
     valloss_file = '{}-val_loss-{}'.format(args.save, train_start)
     np.save(valloss_file, val_losses)
+    trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
+    np.save(trainloss_file, train_losses)  
+    
+    
       
     
     
@@ -206,5 +211,3 @@ class Correlation(nn.Module):
         target_dev = target-target.mean()
         predict_dev = predict-predict.mean()
         return (target_dev*predict_dev).sum()/torch.sqrt((target_dev.pow(2)*predict_dev.pow(2)).sum())
-    
-    
