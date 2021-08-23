@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 23 10:04:15 2021
+Created on Mon Aug 23 19:01:00 2021
 
 @author: amadeu
 """
@@ -87,8 +87,8 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
     
     # run *num_steps* training steps 
     for idx, (inputs, targets) in enumerate(train_loader):
-        if idx > num_steps:
-            break
+        #if idx > num_steps:
+        #    break
         # define input and targets for step
         input, y_true = inputs, targets
         # reshape for consistent size in calculation
@@ -121,8 +121,8 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
     with torch.no_grad():
         # run *val_num_steps* validation steps 
         for idx, (inputs, labels) in enumerate(valid_loader):
-            if idx > num_steps:
-                break            
+        #    if idx > num_steps:
+        #        break            
             # define input and targets for step
             input, y_true = inputs, labels
             # reshape for consistent size in calculation
