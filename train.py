@@ -99,6 +99,7 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
         # train the model
         model.train()
         input = input.to(device)#.cuda()
+        y_true = y_true.to(device)
         
         # predict, calculate loss, update weights
         optimizer.zero_grad()
@@ -131,6 +132,8 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
 
             # predict, calculate loss, save value
             input = input.to(device)#.cuda()  
+            y_true = y_true.to(device)
+
             y_pred = model(input.float())
             loss = criterion(y_pred.float(), y_true.float())
             objs.update(loss.data, args.batch_size)
