@@ -87,14 +87,14 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
     
     # run *num_steps* training steps 
     for idx, (inputs, targets) in enumerate(train_loader):
-        #if idx > num_steps:
-        #    break
+        if idx > num_steps:
+            break
         # define input and targets for step
         input, y_true = inputs, targets
         # reshape for consistent size in calculation
-        # REVIEW: Why do we need the 1?
         input = input.reshape(args.batch_size, 1, args.seq_size)
-        y_true = y_true.reshape(args.batch_size, horizon, 1)
+        #y_true = y_true.reshape(args.batch_size, horizon, 1)
+        y_true = y_true.reshape(args.batch_size, 1, args.horizon)
         
         # train the model
         model.train()
@@ -121,14 +121,14 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
     with torch.no_grad():
         # run *val_num_steps* validation steps 
         for idx, (inputs, labels) in enumerate(valid_loader):
-        #    if idx > num_steps:
-        #        break            
+            if idx > num_steps:
+                break            
             # define input and targets for step
             input, y_true = inputs, labels
             # reshape for consistent size in calculation
-            # REVIEW: Why do we need the 1?
             input = input.reshape(args.batch_size, 1, args.seq_size)
-            y_true = y_true.reshape(args.batch_size, horizon, 1)
+            #y_true = y_true.reshape(args.batch_size, horizon, 1)
+            y_true = y_true.reshape(args.batch_size, 1, args.horizon)
 
             # predict, calculate loss, save value
             input = input.to(device)#.cuda()  
@@ -146,7 +146,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # preprocess data
-    train_queue, val_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size, args.horizon)
+    train_queue, val_queue, test_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size, args.horizon)
         
     # define hyperparameters
     net_args = {
@@ -157,6 +157,7 @@ def main():
         "padding" : args.padding, 
         "split" : model.split, 
         "seq_size" : args.seq_size, 
+        "batch_size" : args.batch_size,
         "SCI_Block" : model.SCI_Block, 
         "K" : args.K, 
         "L" : args.L,
