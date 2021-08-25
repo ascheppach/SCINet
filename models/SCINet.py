@@ -35,7 +35,7 @@ def split(seq_size):
     idx_even = idx_even.long()
     
     # create F_even and F_odd
-    return idx_even, idx_odd 
+    return idx_even.to(device), idx_odd.to(device) 
 
 
 def conv_op(in_channels, expand, kernel, stride, padding): # 
@@ -81,7 +81,7 @@ class SCI_Block(nn.Module): #
         # on page 4 they do an addition for F_odd and subtraction for F_even
         F_odd_final = F_even_s + self.ro(F_even_s)       
 
-        return F_even_final, F_odd_final
+        return F_even_final.to(device), F_odd_final.to(device)
 
 
 class SCI_Net(nn.Module): # 
@@ -91,7 +91,7 @@ class SCI_Net(nn.Module): #
             # print(str(seq_size),str(2**i))
             #print("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
             exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
-        self.fc = nn.Linear(seq_size*1, horizon) #because 10 neurons/seq_len are now 8 neurons
+        self.fc = nn.Linear(seq_size*1, horizon).to(device) #because 10 neurons/seq_len are now 8 neurons
         self.L = L
         self.seq_size = seq_size
         
@@ -121,11 +121,11 @@ class SCI_Net(nn.Module): #
              #reduce ve by iteratively eliminating elements with odd or even indices according to the elements of the next row of 'mat', then append the reduced vector to 'output'
 
         reverse_idx = torch.Tensor(output).to(device)
-        reverse_idx = torch.Tensor(reverse_idx).long()
+        reverse_idx = reverse_idx.long()
         a = np.row_stack([reverse_idx.tolist(), list(range(self.seq_size))])
         a = a[:, a[0, :].argsort()]
         
-        return a[1,:].to(device)
+        return a[1,:]
         
         
     def forward(self, x):
@@ -196,27 +196,27 @@ class stackedSCI(nn.Module):
 
 
 ## Testrun
-x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 20
+# x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 20
 
-sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, SCI_Block, 3, 3)
-X_k = sci_net(x)
-stacki = stackedSCI(in_channels = 1, 
-                    expand = 10,
-                    kernel = 5,
-                    stride = 1,
-                    padding = 4,
-                    split = split,
-                    seq_size = 40,
-                    SCI_Block = SCI_Block,
-                    K = 4,
-                    L = 3,
-                    horizon = 3).float().to(device)
+# sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, SCI_Block, 3, 3)
+# X_k = sci_net(x)
+# stacki = stackedSCI(in_channels = 1, 
+#                     expand = 10,
+#                     kernel = 5,
+#                     stride = 1,
+#                     padding = 4,
+#                     split = split,
+#                     seq_size = 40,
+#                     SCI_Block = SCI_Block,
+#                     K = 4,
+#                     L = 3,
+#                     horizon = 3).float().to(device)
 
-XK = stacki(x)
+# XK = stacki(x)
 
-K = 4
-horizon = 3
-XK.reshape(-1, K, horizon)
+# K = 4
+# horizon = 3
+# XK.reshape(-1, K, horizon)
 
 # Level 1
 # sci_level_0 = SCI_Block(1,16, 3, 1, 2, split, 40)
