@@ -58,7 +58,7 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
         #valid_len = math.floor(0.2*data_len)
         #test_len = math.floor(0.2*data_len)
         
-        for sample in all_samples: # change here
+        for sample in all_samples[0:5]: # change here
             
             for i in range(len(sample)):
                 

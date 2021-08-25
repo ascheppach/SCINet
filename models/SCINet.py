@@ -51,7 +51,7 @@ def conv_op(in_channels, expand, kernel, stride, padding): #
 
 
 class SCI_Block(nn.Module): # 
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size):
         super(SCI_Block, self).__init__()
         
         # convolutional layer for each operation
@@ -85,15 +85,17 @@ class SCI_Block(nn.Module): #
 
 
 class SCI_Net(nn.Module): # 
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L, horizon):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, L, horizon):
         super(SCI_Net, self).__init__()
         for i in range(L):
             # print(str(seq_size),str(2**i))
             #print("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
-            exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
+            exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ", batch_size)")
         self.fc = nn.Linear(seq_size*1, horizon).to(device) #because 10 neurons/seq_len are now 8 neurons
         self.L = L
         self.seq_size = seq_size
+        self.batch_size = batch_size
+        self.horizon = horizon
         
         
     def realign(self): # realign elements to reverse the odd-even splitting
@@ -158,14 +160,31 @@ class SCI_Net(nn.Module): #
         reverse_idx = self.realign()
         F_concat = F_concat[:,:,reverse_idx]
         F_concat += residual
+        # print("F_concat before")
+        # print(F_concat.size())
+        # print(F_concat)
         
         # Finally a fully connected layer is used to get the output
+        F_concat = torch.flatten(F_concat, 1)
+        # print("F_concat after")
+        # print(F_concat.size())
+        # print(F_concat)
+        
         output = self.fc(F_concat)
+        # print("Output fc")
+        # print(output.size())
+        # print(output)
+        
+        output = output.reshape(self.batch_size, 1, self.horizon)
+        # print("Output reshape:")
+        # print(output.size())
+        # print(output)
+        
         return output
 
 
 class stackedSCI(nn.Module):
-    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, K, L, horizon):
+    def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, K, L, horizon):
         super(stackedSCI, self).__init__()
         self.K = K
         self.seq_size = seq_size
@@ -173,10 +192,12 @@ class stackedSCI(nn.Module):
         # Create SCINet block layers for each K
         for i in range(K):
             exec("self.sci_stacK_" + str(i) + 
-                 "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L, horizon)")
+                 "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, L, horizon)")
                     #(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L)
     def forward(self, x):
         x_0 = x
+        # print("x_0")
+        # print(x_0)
         X = list()
         # stack K SCINets
         for j in range(self.K):
@@ -186,19 +207,42 @@ class stackedSCI(nn.Module):
             #print("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
             #print(eval("x_" + str(j)))
             exec("X" + " = X.append(self.sci_stacK_" + str(j) + "(x_" + str(j) + "))")
+            # print("X nach append")
+            # print(X)
             # Save prediction in x_(j+1) in order to create Tensor containing all predictions for loss computation
-            #print(eval("torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)"))
-            exec("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
-        # reshape the output to match with true values
-        # out = torch.stack(X).reshape(-1,self.K,1)
-        out = torch.stack(X).reshape(-1, self.K, self.horizon)
+            # print(eval("torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)"))
+            # print("x_" + str(j) + " before:")
+            # exec("print(x_" + str(j) + ".size())")
+            # exec("print(x_" + str(j) + ")")
+            
+            # print("X[" + str(j) + "]")
+            # exec("print(X[" + str(j) + "].size())")
+            # exec("print(X[" + str(j) + "])")            
+            
+            # print("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
+            exec("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:," + str(self.horizon) + ":" + str(self.seq_size + self.horizon) +"]")
+            
+        #     print("x_" + str(j+1) + " after:")
+        #     exec("print(x_" + str(j+1) + ".size())")
+        #     exec("print(x_" + str(j+1) + ")")
+        # # reshape the output to match with true values
+        # # out = torch.stack(X).reshape(-1,self.K,1)
+        # print("stacked X:")
+        # #print(X.size())
+        # print(X)
+        
+        #out = torch.stack(X).reshape(-1, self.K, self.horizon)
+        out = torch.cat(X, 1)
+        # print("stacki output:")
+        # print(out.size())
+        # print(out)
         return out
 
 
 ## Testrun
-# x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 20
+# x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 40
 
-# sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, SCI_Block, 3, 3)
+# sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, 2, SCI_Block, 3, 3)
 # X_k = sci_net(x)
 # stacki = stackedSCI(in_channels = 1, 
 #                     expand = 10,
@@ -207,13 +251,16 @@ class stackedSCI(nn.Module):
 #                     padding = 4,
 #                     split = split,
 #                     seq_size = 40,
+#                     batch_size = 2,
 #                     SCI_Block = SCI_Block,
 #                     K = 4,
 #                     L = 3,
 #                     horizon = 3).float().to(device)
 
 # XK = stacki(x)
-
+# XK
+# blubb = torch.cat(XK,1)
+# blubb
 # K = 4
 # horizon = 3
 # XK.reshape(-1, K, horizon)
