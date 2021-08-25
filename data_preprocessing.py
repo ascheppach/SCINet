@@ -23,8 +23,8 @@ from sklearn.model_selection import train_test_split
 
 import math
 
-# data_file = 'data/traffic.txt'
-# seq_size, batch_size, K = 15, 2, 2
+#data_file = 'data/traffic.txt'
+#seq_size, batch_size, K = 168, 16, 3
 
         
 def data_preprocessing(data_file, seq_size, batch_size, K):
@@ -95,10 +95,10 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
     x, y = create_sequences(all_samples, seq_size, K)
     
     rest_feat, test_feat, rest_targ, test_targ = train_test_split(
-            x, y, test_size=0.1) # 10%
+            x, y, test_size=0.2) # 10%
     
     train_feat, valid_feat, train_targ, valid_targ = train_test_split(
-            rest_feat, rest_targ, test_size=0.222) # 10% in paper
+            rest_feat, rest_targ, test_size=0.125) # 10% in paper
     
     train = get_data(train_feat, train_targ)# 
     valid = get_data(valid_feat, valid_targ)
