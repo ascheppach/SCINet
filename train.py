@@ -39,12 +39,12 @@ import data_preprocessing as dp
 import utilss
 from utilss import create_exp_dir
 
-import models.SCINet as model
+# import models.SCINet as model
 
 parser = argparse.ArgumentParser("train SCINet")
 # Data and save information
 parser.add_argument('--data_directory', type=str, default='data/traffic.txt', help='location of the data corpus')
-parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
+parser.add_argument('--model', type=str, default='baseline_CNN', help='path to save the model')
 parser.add_argument('--save', type=str,  default='EXP',
                     help='path to save the final model')
 # Specification of Training 
@@ -86,6 +86,8 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
     start_time = time.time()
     
     # run *num_steps* training steps 
+    # train_loader = train_queue
+    # num_steps=3
     for idx, (inputs, targets) in enumerate(train_loader):
         if idx > num_steps:
             break
@@ -142,29 +144,43 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
 
 
 def main():
-    global model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # preprocess data
     train_queue, val_queue, test_queue = dp.data_preprocessing(args.data_directory, args.seq_size, args.batch_size, args.horizon)
         
     # define hyperparameters
-    net_args = {
-        "in_channels" : 1, # because traffic data one dimensional 
-        "expand" : args.h, 
-        "kernel" : args.k, 
-        "stride" : args.stride, 
-        "padding" : args.padding, 
-        "split" : model.split, 
-        "seq_size" : args.seq_size, 
-        "batch_size" : args.batch_size,
-        "SCI_Block" : model.SCI_Block, 
-        "K" : args.K, 
-        "L" : args.L,
-        "horizon" : args.horizon
-        }
-    # define model, loss, and optimizer
-    model = model.stackedSCI(**net_args).float().to(device)
+    
+    if args.model=='SCINet':
+        
+        global model
+
+        
+        import models.SCINet as model
+
+        
+        net_args = {
+            "in_channels" : 1, # because traffic data one dimensional 
+            "expand" : args.h, 
+            "kernel" : args.k, 
+            "stride" : args.stride, 
+            "padding" : args.padding, 
+            "split" : model.split, 
+            "seq_size" : args.seq_size, 
+            "batch_size" : args.batch_size,
+            "SCI_Block" : model.SCI_Block, 
+            "K" : args.K, 
+            "L" : args.L,
+            "horizon" : args.horizon
+            }
+        # define model, loss, and optimizer
+        model = model.stackedSCI(**net_args).float().to(device)
+        
+    if args.model=='baseline_CNN':
+         global model
+         import models.baseline_model as model
+         model = model.baseline_CNN().to(device)
+                 
     #criterion = nn.MSELoss().to(device)
     criterion = nn.L1Loss().to(device) # L1loss is used in paper
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate)

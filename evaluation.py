@@ -73,6 +73,3 @@ for idx, (inputs, targets) in enumerate(test_queue):
     Corr_metric = objs.avg
     objs.update(Corr.data, 16)
     Corr_metrics.append(Corr_metric)
-
-
-
