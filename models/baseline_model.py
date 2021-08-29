@@ -26,17 +26,20 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class baseline_CNN(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size, horizon, seq_size):
         super(baseline_CNN,self).__init__()
-        self.conv1d = nn.Conv1d(1,64,kernel_size=1)
+        self.batch_size = batch_size
+        self.horizon = horizon
+        self.seq_size = seq_size
+        self.conv1d = nn.Conv1d(1,64,kernel_size=3)
         self.relu = nn.ReLU(inplace=True)
-        self.fc1 = nn.Linear(1280,50)
-        self.fc2 = nn.Linear(50,3)
+        self.fc1 = nn.Linear(((seq_size-3)+1)*64,50)
+        self.fc2 = nn.Linear(50,horizon)
         
     def forward(self,x):
         #print(x.shape)
         x = self.conv1d(x)
-        #print(x.shape)
+        # print(x.shape)
         x = self.relu(x)
         # x = x.view(-1)
         x = torch.flatten(x, 1)
@@ -45,4 +48,4 @@ class baseline_CNN(nn.Module):
         x = self.relu(x)
         x = self.fc2(x)
         
-        return x
+        return x.reshape(self.batch_size, 1, self.horizon)
