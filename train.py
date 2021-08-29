@@ -179,7 +179,7 @@ def main():
     if args.model=='baseline_CNN':
          global model
          import models.baseline_model as model
-         model = model.baseline_CNN().to(device)
+         model = model.baseline_CNN(args.batch_size, args.horizon, args.seq_size).to(device)
                  
     #criterion = nn.MSELoss().to(device)
     criterion = nn.L1Loss().to(device) # L1loss is used in paper
