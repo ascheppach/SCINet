@@ -43,33 +43,53 @@ model = torch.load("output2021_08_25/run1.pth", map_location=torch.device('cpu')
 
 # make predictions with the model and evaluate
 objs = utilss.AvgrageMeter()
-RSE_losses = []
-Corr_metrics = []
+corrs = utilss.AvgrageMeter()
 
-for idx, (inputs, targets) in enumerate(test_queue):
-    input, y_true = inputs, targets
-    # reshape for consistent size in calculation
-    input = input.reshape(16, 1, 168)
-    y_true = y_true.reshape(16, 1, 3)
-    
-    input = input.to(device)
-    y_true = y_true.to(device)
-    
-    # predict, calculate loss
-    model.eval()
-    y_pred = model(input.float()) 
-    criterion1 = RSELoss().to(device)
-    criterion2 = Correlation().to(device)
-    
-    RSE = criterion1(y_pred.float(), y_true.float())
-    Corr = criterion2(y_pred.float(), y_true.float())
-    
-    #print('RSE loss is {}'.format(RSE))
-    #print('Correlation is {}'.format(Corr))
-    
-    objs.update(RSE.data, 16)
-    RSE_loss = objs.avg
-    RSE_losses.append(RSE_loss)
-    Corr_metric = objs.avg
-    objs.update(Corr.data, 16)
-    Corr_metrics.append(Corr_metric)
+model.eval()
+
+with torch.no_grad():
+
+    for idx, (inputs, targets) in enumerate(test_queue):
+        input, y_true = inputs, targets
+        # reshape for consistent size in calculation
+        input = input.reshape(16, 1, 168)
+        y_true = y_true.reshape(16, 1, 3)
+        
+        input = input.to(device)
+        y_true = y_true.to(device)
+        
+        # predict, calculate loss
+        model.eval()
+        y_pred = model(input.float()) 
+        criterion1 = RSELoss().to(device)
+        criterion2 = Correlation().to(device)
+        
+        RSE = criterion1(y_pred.float(), y_true.float())
+        Corr = criterion2(y_pred.float(), y_true.float())
+        
+        #print('RSE loss is {}'.format(RSE))
+        #print('Correlation is {}'.format(Corr))
+        
+        objs.update(RSE.data, 16)
+        # RSE_losses.append(RSE_loss)
+        # Corr_metric = objs.avg
+        corrs.update(Corr.data, 16)
+        #Corr_metrics.append(Corr_metric)
+      
+        
+RSE_loss = objs.avg
+Corr_metric = corrs.avg
+
+loss_file = 'RSE_loss-{}'.format('eval')
+np.save(loss_file, RSE_loss)  
+
+corr_file = 'Corr_coef-{}'.format('eval')
+np.save(corr_file, Corr_metric)  
+       
+        
+        
+        
+        
+        
+        
+        
