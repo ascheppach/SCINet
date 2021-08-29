@@ -34,8 +34,6 @@ class Correlation(nn.Module):
 
 # look at the losses and choose best model
 data = np.load('output2021_08_25/EXPsearch-try-20210825-180827-val_loss-20210825-1920.npy', allow_pickle=True)
-torch.cuda.is_available()
-data = torch.load('output2021_08_25/EXPsearch-try-20210825-180827-val_loss-20210825-1920.npy' , map_location=torch.device('cpu'))
 
 # load test data
 train_queue, val_queue, test_queue = dp.data_preprocessing('data/traffic.txt', 168, 16, 3)
@@ -45,6 +43,8 @@ model = torch.load("output2021_08_25/run1.pth", map_location=torch.device('cpu')
 
 # make predictions with the model and evaluate
 objs = utilss.AvgrageMeter()
+RSE_losses = []
+Corr_metrics = []
 
 for idx, (inputs, targets) in enumerate(test_queue):
     input, y_true = inputs, targets
@@ -58,15 +58,18 @@ for idx, (inputs, targets) in enumerate(test_queue):
     # predict, calculate loss
     model.eval()
     y_pred = model(input.float()) 
-    criterion1 = nn.RSELoss().to(device)
-    criterion2 = nn.Correlation().to(device)
+    criterion1 = RSELoss().to(device)
+    criterion2 = Correlation().to(device)
+    
     RSE = criterion1(y_pred.float(), y_true.float())
     Corr = criterion2(y_pred.float(), y_true.float())
-    print('RSE loss is {}'.format(RSE))
-    print('Correlation is {}'.format(Corr))
+    
+    #print('RSE loss is {}'.format(RSE))
+    #print('Correlation is {}'.format(Corr))
+    
     objs.update(RSE.data, 16)
+    RSE_loss = objs.avg
+    RSE_losses.append(RSE_loss)
+    Corr_metric = objs.avg
     objs.update(Corr.data, 16)
-
-
-
-
+    Corr_metrics.append(Corr_metric)
