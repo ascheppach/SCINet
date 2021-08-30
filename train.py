@@ -40,11 +40,12 @@ import utilss
 from utilss import create_exp_dir
 
 # import models.SCINet as model
+# --h=2 --K=1 --L=3 --padding=4 --seed=4321 --data_directory=data\traffic.txt
 
 parser = argparse.ArgumentParser("train SCINet")
 # Data and save information
 parser.add_argument('--data_directory', type=str, default='data/traffic.txt', help='location of the data corpus')
-parser.add_argument('--model', type=str, default='baseline_CNN', help='path to save the model')
+parser.add_argument('--model', type=str, default='SCINet', help='path to save the model')
 parser.add_argument('--save', type=str,  default='EXP',
                     help='path to save the final model')
 # Specification of Training 
@@ -56,15 +57,15 @@ parser.add_argument('--val_num_steps', type=int, default=2, help='number of iter
 parser.add_argument('--report_freq', type=int, default=5, help='validation report frequency') # 5 in paper
 # General hyperparameters
 parser.add_argument('--batch_size', type=int, default=2, help='batch size') # 16 in paper
-parser.add_argument('--seq_size', type=int, default=20, help='sequence size') # 200 oder 1000 -> paper:168 as look-back window? And should we call it T to resemble the paper?
+parser.add_argument('--seq_size', type=int, default=168, help='sequence size') # 200 oder 1000 -> paper:168 as look-back window? And should we call it T to resemble the paper?
 parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate') # 0.0005 in paper
-parser.add_argument('--k', type=int, default=4, help='kernel size') # 5 in paper
+parser.add_argument('--k', type=int, default=5, help='kernel size') # 5 in paper
 parser.add_argument('--stride', type=int, default=1, help='stride') # 1 in paper
-parser.add_argument('--padding', type=int, default=2, help='padding')
+parser.add_argument('--padding', type=int, default=4, help='padding')
 parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
 # Paper specific hyperparameters
-parser.add_argument('--h', type=int, default=4, help='extention of input channel') # 2 in paper
-parser.add_argument('--K', type=int, default=2, help='number of stacks') # 1 in paper
+parser.add_argument('--h', type=int, default=2, help='extention of input channel') # 2 in paper
+parser.add_argument('--K', type=int, default=1, help='number of stacks') # 1 in paper
 parser.add_argument('--L', type=int, default=3, help='Number of SCI-Block levels') # 3 in paper
 # Other
 parser.add_argument('--note', type=str, default='try', help='note for this run')
@@ -154,10 +155,9 @@ def main():
     if args.model=='SCINet':
         
         global model
-
         
-        import models.SCINet as model
-
+        #import models.SCINet as model
+        import models.SCINet2 as model
         
         net_args = {
             "in_channels" : 1, # because traffic data one dimensional 
@@ -169,12 +169,13 @@ def main():
             "seq_size" : args.seq_size, 
             "batch_size" : args.batch_size,
             "SCI_Block" : model.SCI_Block, 
-            "K" : args.K, 
+            #"K" : args.K, 
             "L" : args.L,
             "horizon" : args.horizon
             }
         # define model, loss, and optimizer
-        model = model.stackedSCI(**net_args).float().to(device)
+        # model = model.stackedSCI(**net_args).float().to(device)
+        model = model.SCI_Net(**net_args).float().to(device)
         
     if args.model=='baseline_CNN':
          global model
