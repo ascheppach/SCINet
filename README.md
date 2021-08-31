@@ -21,9 +21,9 @@ export PYTHONPATH="$PYTHONPATH:~/SCINet"
 ```
 
 ## Repository structure
-Our Repository consists of the main folder, containing our general functions such as the data preprocessing and the training scripts. Furthermore, there are two folders:
-- The data folder is empty, as the files are too large to include in our repository. To get the datasets, download the files on [electricity](https://archive.ics.uci.edu/ml/machine-learning-databases/00321/LD2011_2014.txt.zip) and [traffic](https://github.com/laiguokun/multivariate-time-series-data/blob/7f402f185cc2435b5e66aed13a3b560ed142e023/traffic/traffic.txt.gz) as stated in the mentioned paper and store them in here. 
-- The models folder consists of our data preprocessing, and the SCINet implementation, as well as one baseline model for reference.
+Our Repository consists of the main folder, containing our general functions such as the data preprocessing and the training script, as well as the script for evaluating the model performance. Furthermore, there are two folders:
+- The **data** folder is empty, as the files are too large to include in our repository. To get the datasets, download the files on [electricity](https://archive.ics.uci.edu/ml/machine-learning-databases/00321/LD2011_2014.txt.zip) and [traffic](https://github.com/laiguokun/multivariate-time-series-data/blob/7f402f185cc2435b5e66aed13a3b560ed142e023/traffic/traffic.txt.gz) as stated in the mentioned paper and store them in here. 
+- The **models** folder consists of our data preprocessing, and the SCINet implementation, as well as one baseline model for reference.
 
 The main file is the `train.py`, which sources all other relevant files for running the model. 
 
