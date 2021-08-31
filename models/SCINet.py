@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 23 10:18:28 2021
-
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
 from argparse import Namespace
@@ -24,6 +22,9 @@ from tqdm import tqdm_notebook as tqdm
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+#### Help functions for the blocks
+
+## Split functions for the first block
 # split into even and uneven
 # indexing for F_even
 def split(seq_size):
@@ -37,7 +38,7 @@ def split(seq_size):
     # create F_even and F_odd
     return idx_even.to(device), idx_odd.to(device) 
 
-
+## The structure of nu, psi, ro and phi as described in Figure 5 of the paper
 def conv_op(in_channels, expand, kernel, stride, padding): # 
     convs = nn.Sequential(nn.ReplicationPad1d(padding),
                           nn.Conv1d(in_channels, in_channels*expand, kernel_size=kernel, 
@@ -49,7 +50,7 @@ def conv_op(in_channels, expand, kernel, stride, padding): #
                           nn.Tanh())
     return convs
 
-
+#### (a) SCI-Block
 class SCI_Block(nn.Module): # 
     def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size):
         super(SCI_Block, self).__init__()
@@ -63,20 +64,11 @@ class SCI_Block(nn.Module): #
         
     def forward(self, x):
         # split sequence to even/odd block
-        # print(x.size())
-        # print(self.idx_even)
-        # print(self.idx_odd)
         F_even = x[:,:,self.idx_even]
         F_odd = x[:,:,self.idx_odd]
-        # print(torch.exp(self.psi(F_odd)).size())
-        # print(torch.exp(self.phi(F_even)).size())
         F_even_s = F_even * torch.exp(self.psi(F_odd))
         F_odd_s = F_odd * torch.exp(self.phi(F_even))
 
-        # print(F_odd_s.size())
-        # print(F_even_s.size())
-        # print(self.nu(F_odd_s).size())
-        # print(self.ro(F_even_s).size())
         F_even_final = F_odd_s - self.nu(F_odd_s) # in the paper, they write you can add or subtract, but in the picture
         # on page 4 they do an addition for F_odd and subtraction for F_even
         F_odd_final = F_even_s + self.ro(F_even_s)       
@@ -84,21 +76,23 @@ class SCI_Block(nn.Module): #
         return F_even_final.to(device), F_odd_final.to(device)
 
 
-class SCI_Net(nn.Module): # 
+#### (b) SCINet
+class SCI_Net(nn.Module): 
     def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, L, horizon):
         super(SCI_Net, self).__init__()
+        # create one SCI-Block for each level as defined
         for i in range(L):
-            # print(str(seq_size),str(2**i))
-            #print("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ")")
             exec("self.sci_level_" + str(i) + " = SCI_Block(in_channels, expand, kernel, stride, padding, split," + str(int(seq_size)/(2**i)) + ", batch_size)")
+        # define the last fully connected layer 
         self.fc = nn.Linear(seq_size*1, horizon).to(device) #because 10 neurons/seq_len are now 8 neurons
+        # initalize variables for later use
         self.L = L
         self.seq_size = seq_size
         self.batch_size = batch_size
         self.horizon = horizon
         
-        
-    def realign(self): # realign elements to reverse the odd-even splitting
+    # define help function: realign elements to reverse the odd-even splitting
+    def realign(self): 
         
         def pre_realign(v, combination):
             # v a list, combination a binary list
@@ -141,7 +135,6 @@ class SCI_Net(nn.Module): #
         for l in range(1, self.L + 1):
             i = 1
             j = 1
-            #print(" ")
             while i <= 2**l:
                 exec("F_" + str(l) + str(i) + ", F_" + str(l) + str(i+1) +
                       " = self.sci_level_" 
@@ -160,29 +153,18 @@ class SCI_Net(nn.Module): #
         reverse_idx = self.realign()
         F_concat = F_concat[:,:,reverse_idx]
         F_concat += residual
-        # print("F_concat before")
-        # print(F_concat.size())
-        # print(F_concat)
         
         # Finally a fully connected layer is used to get the output
         F_concat = torch.flatten(F_concat, 1)
-        # print("F_concat after")
-        # print(F_concat.size())
-        # print(F_concat)
         
         output = self.fc(F_concat)
-        # print("Output fc")
-        # print(output.size())
-        # print(output)
         
         output = output.reshape(self.batch_size, 1, self.horizon)
-        # print("Output reshape:")
-        # print(output.size())
-        # print(output)
         
         return output
 
 
+#### (c) Stacked SCINet
 class stackedSCI(nn.Module):
     def __init__(self, in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, K, L, horizon):
         super(stackedSCI, self).__init__()
@@ -193,58 +175,36 @@ class stackedSCI(nn.Module):
         for i in range(K):
             exec("self.sci_stacK_" + str(i) + 
                  "= SCI_Net(in_channels, expand, kernel, stride, padding, split, seq_size, batch_size, SCI_Block, L, horizon)")
-                    #(self, in_channels, expand, kernel, stride, padding, split, seq_size, SCI_Block, L)
     def forward(self, x):
         x_0 = x
-        # print("x_0")
-        # print(x_0)
         X = list()
         # stack K SCINets
         for j in range(self.K):
-            #print("STACK " + str(j))
             # Save each SCINet in list X
-            #print("X" + " = X.append(self.sci_stacK_" + str(j) + "(x_" + str(j) + "))")
-            #print("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
-            #print(eval("x_" + str(j)))
             exec("X" + " = X.append(self.sci_stacK_" + str(j) + "(x_" + str(j) + "))")
-            # print("X nach append")
-            # print(X)
             # Save prediction in x_(j+1) in order to create Tensor containing all predictions for loss computation
-            # print(eval("torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)"))
-            # print("x_" + str(j) + " before:")
-            # exec("print(x_" + str(j) + ".size())")
-            # exec("print(x_" + str(j) + ")")
             
-            # print("X[" + str(j) + "]")
-            # exec("print(X[" + str(j) + "].size())")
-            # exec("print(X[" + str(j) + "])")            
-            
-            # print("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:,1:" + str(self.seq_size+1) +"]")
             exec("x_" + str(j+1) + " = torch.cat((x_" + str(j) + ", X[" + str(j) + "]),2)[:,:," + str(self.horizon) + ":" + str(self.seq_size + self.horizon) +"]")
             
-        #     print("x_" + str(j+1) + " after:")
-        #     exec("print(x_" + str(j+1) + ".size())")
-        #     exec("print(x_" + str(j+1) + ")")
-        # # reshape the output to match with true values
-        # # out = torch.stack(X).reshape(-1,self.K,1)
-        # print("stacked X:")
-        # #print(X.size())
-        # print(X)
-        
-        #out = torch.stack(X).reshape(-1, self.K, self.horizon)
         out = torch.cat(X, 1)
-        # print("stacki output:")
-        # print(out.size())
-        # print(out)
         return out
 
 
-## Testrun
+#### Unit Tests (uncomment if needed)
+
+## First building block
+# sci_level_0 = SCI_Block(1,16, 3, 1, 2, split, 40)
+
+# create random dataset for testing
 # x = torch.rand(2,1,40) # input with batch_size 2 and sequence length 40
 
-# sci_net = SCI_Net(1, 16, 3, 1, 2, split, 40, 2, SCI_Block, 3, 3)
-# X_k = sci_net(x)
-# stacki = stackedSCI(in_channels = 1, 
+## Second building block 
+# net = SCI_Net(1, 16, 3, 1, 2, split, 40, 2, SCI_Block, 3, 3)
+# X_k = net(x)
+# print(X_k)
+
+## Third building block
+# stack = stackedSCI(in_channels = 1, 
 #                     expand = 10,
 #                     kernel = 5,
 #                     stride = 1,
@@ -256,45 +216,5 @@ class stackedSCI(nn.Module):
 #                     K = 4,
 #                     L = 3,
 #                     horizon = 3).float().to(device)
-
-# XK = stacki(x)
-# XK
-# blubb = torch.cat(XK,1)
-# blubb
-# K = 4
-# horizon = 3
-# XK.reshape(-1, K, horizon)
-
-# Level 1
-# sci_level_0 = SCI_Block(1,16, 3, 1, 2, split, 40)
-# F_01 = sci_level_0(x) 
-# # Level 2
-# sci_level_1 = SCI_Block(1, 16, 3, 1, 2, split, 20)
-# F_21 = sci_level_1(F_01[0]) 
-# F_22 = sci_level_1(F_01[1]) 
-# # Level 3
-# sci_level_2 = SCI_Block(1, 16, 3, 1, 2, split, 10)
-# sci_level_3 = SCI_Block(1, 16, 3, 1, 2, split, 10)
-
-# L = 3
-# residual = x
-# F_01 = x
-# for l in range(1, L + 1):
-#     i = 1
-#     j = 1
-#     print(" ")
-#     while i <= 2**l:
-#         #print("F_" + str(l) + str(i) + ", F_" + str(l) + str(i+1) +
-#               " = sci_level_" 
-#               + str(l-1) + "(F_" + str(l-1) + str(j) + ")")
-#         exec("F_" + str(l) + str(i) + ", F_" + str(l) + str(i+1) +
-#               " = sci_level_" 
-#               + str(l-1) + "(F_" + str(l-1) + str(j) + ")")
-#         i += 2
-#         j += 1
-
-# F_concat = F_01
-# exec("F_concat = F_" + str(L) + "1")   
-# for i in range(2, 2**L + 1):
-#     exec("F_concat = torch.cat([F_concat, F_"+ str(L) + str(i) + "], dim = 2)")   
-# F_concat
+# XK = stack(x)
+# print(XK)
