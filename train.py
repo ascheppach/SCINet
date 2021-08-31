@@ -91,7 +91,6 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
         input, y_true = inputs, targets
         # reshape for consistent size in calculation
         input = input.reshape(args.batch_size, 1, args.seq_size)
-        #y_true = y_true.reshape(args.batch_size, horizon, 1)
         y_true = y_true.reshape(args.batch_size, 1, args.horizon)
         
         # train the model
@@ -125,7 +124,7 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
             input, y_true = inputs, labels
             # reshape for consistent size in calculation
             input = input.reshape(args.batch_size, 1, args.seq_size)
-            #y_true = y_true.reshape(args.batch_size, 1, args.horizon)
+            y_true = y_true.reshape(args.batch_size, 1, args.horizon)
 
             # predict, calculate loss, save value
             input = input.to(device)
