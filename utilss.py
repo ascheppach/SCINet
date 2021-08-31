@@ -3,7 +3,7 @@
 """
 Created on Wed Jul 21 14:11:41 2021
 
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
 
