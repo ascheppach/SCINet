@@ -1,91 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Aug 28 13:27:31 2021
-
-@author: vszab
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.utils
-
-import utilss
-import data_preprocessing as dp
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# evaluate them with the RSE-loss and Correlation metric from the paper
-class RSELoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-        
-    def forward(self, predict, target):
-        return torch.sqrt((predict-target).pow(2).sum())/torch.sqrt((target-target.mean()).pow(2).sum())
-    
-class Correlation(nn.Module):
-    def __init__(self):
-        super().__init__()
-        
-    def forward(self, predict, target):
-        target_dev = target-target.mean()
-        predict_dev = predict-predict.mean()
-        return (target_dev*predict_dev).sum()/torch.sqrt((target_dev.pow(2)*predict_dev.pow(2)).sum())
+import numpy as np
+import matplotlib.pyplot as plt
 
 
-# look at the losses and choose best model
-data = np.load('output2021_08_25/EXPsearch-try-20210825-180827-val_loss-20210825-1920.npy', allow_pickle=True)
+# Plot train and validation loss for traffic
+datatrain = np.load('results/EXPsearch-try-20210825-220037-train_loss-20210826-0004_traffic.npy', allow_pickle=1)
+dataval = np.load('results/EXPsearch-try-20210825-220037-val_loss-20210826-0004_traffic.npy', allow_pickle=1)
 
-# load test data
-train_queue, val_queue, test_queue = dp.data_preprocessing('data/traffic.txt', 168, 16, 3)
+fig1=plt.figure()
+plt.plot(datatrain,label='train_loss_electricity')
+plt.plot(dataval,label='val_loss_electricity')
+plt.legend()
+fig1.savefig('results/train_val-loss_traffic.png')
+plt.close(fig1)
 
-# load best model
-model = torch.load("output2021_08_25/run1.pth", map_location=torch.device('cpu'))
+# Plot train and validation loss for electricity
+datatrain = np.load('results/EXPsearch-try-20210831-210546-train_loss-20210831-2155_electricity.npy', allow_pickle=1)
+dataval = np.load('results/EXPsearch-try-20210831-210546-val_loss-20210831-2155_electricity.npy', allow_pickle=1)
 
-# make predictions with the model and evaluate
-objs = utilss.AvgrageMeter()
-corrs = utilss.AvgrageMeter()
-
-model.eval()
-
-with torch.no_grad():
-
-    for idx, (inputs, targets) in enumerate(test_queue):
-        input, y_true = inputs, targets
-        # reshape for consistent size in calculation
-        input = input.reshape(16, 1, 168)
-        y_true = y_true.reshape(16, 1, 3)
-        
-        input = input.to(device)
-        y_true = y_true.to(device)
-        
-        # predict, calculate loss
-        model.eval()
-        y_pred = model(input.float()) 
-        criterion1 = RSELoss().to(device)
-        criterion2 = Correlation().to(device)
-        
-        RSE = criterion1(y_pred.float(), y_true.float())
-        Corr = criterion2(y_pred.float(), y_true.float())
-        
-        #print('RSE loss is {}'.format(RSE))
-        #print('Correlation is {}'.format(Corr))
-        
-        objs.update(RSE.data, 16)
-        # RSE_losses.append(RSE_loss)
-        # Corr_metric = objs.avg
-        corrs.update(Corr.data, 16)
-        #Corr_metrics.append(Corr_metric)
-      
-        
-RSE_loss = objs.avg
-Corr_metric = corrs.avg
-
-loss_file = 'RSE_loss-{}'.format('eval')
-np.save(loss_file, RSE_loss)  
-
-corr_file = 'Corr_coef-{}'.format('eval')
-np.save(corr_file, Corr_metric)  
-       
+fig2=plt.figure()
+plt.plot(datatrain,label='train_loss_electricity')
+plt.plot(dataval,label='val_loss_electricity')
+plt.legend()
+fig2.savefig('results/train_val-loss_electricity.png')
+plt.close(fig2)
         
         
         
