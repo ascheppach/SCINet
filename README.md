@@ -34,7 +34,7 @@ python train.py --model='SCINet' --model_path='./run1_traffic.pth' --epochs=100 
 python train.py --model='SCINet' --model_path='./run1_elec.pth' --epochs=10 --num_steps=6000 --horizon=3 --batch_size=32 --seq_size=168 --learning_rate=0.0005 --k=5 --num_motifs=320 --h=8 --K=1 --L=3 --padding=4 --seed=4321 --data_directory=data\LD2011_2014.txt --data_name='electricity'
 ```
 
-For the settings stated in the command above, following performances were achieved for traffic and electricity:
+For the settings stated in the command above, following performances were achieved for traffic on the left and electricity on the right:
 
 ![](/results/train_val-loss_traffic.jpg)
 ![](/results/train_val-loss_electricity.jpg)
