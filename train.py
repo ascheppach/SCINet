@@ -97,7 +97,7 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps, report_f
         # reshape for consistent size in calculation
         input = input.reshape(args.batch_size, 1, args.seq_size)
         #y_true = y_true.reshape(args.batch_size, horizon, 1)
-        y_true = y_true.reshape(args.batch_size, 1, args.horizon)
+        #y_true = y_true.reshape(args.batch_size, 1, args.horizon)
         
         # train the model
         model.train()
@@ -131,7 +131,7 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
             # reshape for consistent size in calculation
             input = input.reshape(args.batch_size, 1, args.seq_size)
             #y_true = y_true.reshape(args.batch_size, horizon, 1)
-            y_true = y_true.reshape(args.batch_size, 1, args.horizon)
+            #y_true = y_true.reshape(args.batch_size, 1, args.horizon)
 
             # predict, calculate loss, save value
             input = input.to(device)#.cuda()  
@@ -141,6 +141,7 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps, report_f
             loss = criterion(y_pred.float(), y_true.float())
             objs.update(loss.data, args.batch_size)
     return objs.avg 
+
 
 
 
