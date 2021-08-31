@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 23 18:32:30 2021
-
-@author: amadeu
+@author: Scheppach Amadeu, Szabo Viktoria, To Xiao-Yin
 """
 
 
@@ -23,60 +21,74 @@ from sklearn.model_selection import train_test_split
 
 import math
 
-#data_file = 'data/traffic.txt'
-#seq_size, batch_size, K = 168, 16, 3
 
         
-def data_preprocessing(data_file, seq_size, batch_size, K):
+def data_preprocessing(data_file, seq_size, batch_size, K, name):
     
-    def open_data(data_file):
+    # depending on which dataset is used, the preprocessing is done differently
+    def open_data_traffic(data_file):
         with open(data_file, 'r') as f:
             text = f.read()
             
-        text = text.split("\n") # there are 862 timesteps after each \n 
+        text = text.split("\n") # data is splitted by lines
+        # there are 862 timesteps after each \n 
         # so we have 17544 elements, and each of these elements have 862 time steps
         text = text[:-1]
         
         all_samples = []
-        for sample in text: # each samples consists of 862 time steps
-            sample = sample.split(",")
+        for sample in text: # each sample consists of 862 time steps
+            sample = sample.split(",") # splitting for time steps
             sample = np.array(sample)
             sample = sample.astype(float)
-
             all_samples.append(sample)
             
-        
         return all_samples
+        
+    def open_data_elec(data_file):
+        with open(data_file, 'r') as f:
+            text = f.read()
+            
+            text = text.split("\n") 
+            # don't use headers, which are the client codenames
+            text = text[1:]
+            
+            all_samples = []
+            for sample in text:
+                sample = sample.split(";")
+                sample = np.array(sample)
+                all_samples.append(sample)
+                
+            all_samples_new = []
+            for i in all_samples:
+                # delete first observation (date and time)
+                i = np.delete(i, 0)
+                for j in range(len(i)):
+                    i[j] = float(i[j].replace(',','.'))
+                i = np.array(i)
+                i = i.astype(float)
+                all_samples_new.append(i)
+        
+        return all_samples_new
 
-
+    # create sequences based on the look-back horizon (seq_size) and prediction horizon (K)
     def create_sequences(all_samples, seq_size, K): 
         x = list()
         y = list()
-        
-        #data_len = len(all_samples)
-        #train_len = math.floor(0.6*data_len)
-        #valid_len = math.floor(0.2*data_len)
-        #test_len = math.floor(0.2*data_len)
-        
-        for sample in all_samples: # change here
+           
+        for sample in all_samples:
             
             for i in range(len(sample)):
-                
-                # i=0
-                # seq_size=10
                 idx = i + seq_size #sequence end
                 
                 if (idx+K) > len(sample)-1: 
                     break
                 
                 # add K positions to label to predict the K next timesteps
-                feat_seq, target_seq = sample[i:idx], sample[idx:(idx+K)] # target labels for CNN
+                feat_seq, target_seq = sample[i:idx], sample[idx:(idx+K)]
                 x.append(feat_seq)
                 y.append(target_seq)
-                    
             
         return array(x), array(y)
-
 
 
     class get_data(Dataset):
@@ -90,17 +102,23 @@ def data_preprocessing(data_file, seq_size, batch_size, K):
             label = self.target[idx]
             return item,label
     
-    all_samples = open_data(data_file)#/home/scheppacha/data/trainset.txt')
+    if name=='traffic':
+        all_samples = open_data_traffic(data_file)
+    
+    if name=='electricity':
+        all_samples = open_data_elec(data_file)
     
     x, y = create_sequences(all_samples, seq_size, K)
     
+    # Split in train, validation and test data
     rest_feat, test_feat, rest_targ, test_targ = train_test_split(
-            x, y, test_size=0.2) # 10%
+            x, y, test_size=0.2) # test data = 20%
     
+    # validation = 10% of complete data and therefore 12,5% of the 80% rest data
     train_feat, valid_feat, train_targ, valid_targ = train_test_split(
-            rest_feat, rest_targ, test_size=0.125) # 10% in paper
+            rest_feat, rest_targ, test_size=0.125) 
     
-    train = get_data(train_feat, train_targ)# 
+    train = get_data(train_feat, train_targ)
     valid = get_data(valid_feat, valid_targ)
     test = get_data(test_feat, test_targ)
 
