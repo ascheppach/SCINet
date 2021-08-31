@@ -29,3 +29,6 @@ To run SCINet for time series, enter following command (relative data_directory 
 ```
 python train.py --model_path='./run1.pth' --epochs=100 --num_steps=3000 --horizon=3 --batch_size=16 --seq_size=168 --learning_rate=0.0005 --k=5 --num_motifs=320 --h=2 --K=1 --L=3 --padding=4 --seed=4321 --data_directory=data\traffic.txt
 ```
+
+![GitHub Logo](/Figure 2021-08-24 195004.png)
+
