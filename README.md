@@ -34,5 +34,6 @@ To run SCINet for time series, enter the command below. Please note, that here, 
 python train.py --model_path='./run1.pth' --epochs=100 --num_steps=3000 --horizon=3 --batch_size=16 --seq_size=168 --learning_rate=0.0005 --k=5 --num_motifs=320 --h=2 --K=1 --L=3 --padding=4 --seed=4321 --data_directory=data\traffic.txt
 ```
 
-![](/train_val-loss.jpg)
+For the setting stated in the command above, following performance was achieved:
 
+![](/train_val-loss.jpg)
