@@ -44,7 +44,7 @@ def conv_op(in_channels, expand, kernel, stride, padding): #
                           nn.Conv1d(in_channels, in_channels*expand, kernel_size=kernel, 
                           stride=stride, bias=False),
                           nn.LeakyReLU(negative_slope=0.01),
-                          nn.Dropout(0.5),
+                          nn.Dropout(0.2),
                           nn.Conv1d(in_channels*expand, in_channels, kernel_size=kernel, 
                           stride=stride, bias=False),
                           nn.Tanh())
@@ -104,7 +104,15 @@ class SCI_Net(nn.Module): #
 
 
 
-        self.fc = nn.Linear(seq_size*1, horizon).to(device) #because 10 neurons/seq_len are now 8 neurons
+        self.fc1 = nn.Linear(seq_size*1, 50).to(device) 
+        
+        self.relu = nn.ReLU(inplace=True)
+
+        
+        self.dropout = nn.Dropout(0.1)
+
+
+        self.fc2 = nn.Linear(50, horizon).to(device) 
         self.L = L
         self.seq_size = seq_size
         self.batch_size = batch_size
@@ -177,12 +185,18 @@ class SCI_Net(nn.Module): #
         # print(F_concat.size())
         # print(F_concat)
         
-        output = self.fc(F_concat)
+        x = self.fc1(F_concat)
+        
+        x = self.relu(x)
+        
+        x = self.dropout(x)
+        
+        output = self.fc2(x)
         # print("Output fc")
         # print(output.size())
         # print(output)
         
-        output = output.reshape(self.batch_size, 1, self.horizon)
+        # output = output.reshape(self.batch_size, 1, self.horizon)
         # print("Output reshape:")
         # print(output.size())
         # print(output)
