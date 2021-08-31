@@ -36,7 +36,7 @@ python train.py --model='SCINet' --model_path='./run1_elec.pth' --epochs=10 --nu
 
 For the settings stated in the command above, following performances were achieved for traffic and electricity:
 
-![](/train_val-loss.jpg)
+![](/results/train_val-loss_traffic.jpg)
 ![](/results/train_val-loss_electricity.jpg)
 
 ## Tested with
