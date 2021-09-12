@@ -42,7 +42,7 @@ def data_preprocessing(data_file, seq_size, batch_size, K, name):
         samples = np.reshape(sample, (862,1))
 
         #all_samples = []
-        for sample in text[1:1000]: # each samples consists of 862 time steps
+        for sample in text: # each samples consists of 862 time steps
             # sample = text [1]
             sample = sample.split(",")
             sample = np.array(sample)
