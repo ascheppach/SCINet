@@ -22,27 +22,38 @@ from sklearn.model_selection import train_test_split
 import math
 
 
+
         
 def data_preprocessing(data_file, seq_size, batch_size, K, name):
+    
     
     # depending on which dataset is used, the preprocessing is done differently
     def open_data_traffic(data_file):
         with open(data_file, 'r') as f:
             text = f.read()
             
-        text = text.split("\n") # data is splitted by lines
-        # there are 862 timesteps after each \n 
-        # so we have 17544 elements, and each of these elements have 862 time steps
+        text = text.split("\n") # there are 862 timesteps after each \n 
+        # so we have 17544 timesteps, and each of these elements has 862 features
         text = text[:-1]
         
-        all_samples = []
-        for sample in text: # each sample consists of 862 time steps
-            sample = sample.split(",") # splitting for time steps
+        sample = text[0].split(",")
+        sample = np.array(sample)
+        sample = sample.astype(float)
+        samples = np.reshape(sample, (862,1))
+
+        #all_samples = []
+        for sample in text[1:1000]: # each samples consists of 862 time steps
+            # sample = text [1]
+            sample = sample.split(",")
             sample = np.array(sample)
             sample = sample.astype(float)
-            all_samples.append(sample)
+            sample = np.reshape(sample, (862,1))
+            samples = np.append(samples, sample, axis=1)
             
-        return all_samples
+        #all_samples = np.concatenate(all_samples, axis=0)
+            
+        return samples
+    
         
     def open_data_elec(data_file):
         with open(data_file, 'r') as f:
@@ -74,21 +85,26 @@ def data_preprocessing(data_file, seq_size, batch_size, K, name):
     def create_sequences(all_samples, seq_size, K): 
         x = list()
         y = list()
-           
-        for sample in all_samples:
+        
+        #data_len = len(all_samples)
+        #train_len = math.floor(0.6*data_len)
+        #valid_len = math.floor(0.2*data_len)
+        #test_len = math.floor(0.2*data_len)
+        
+        for i in range(len(all_samples)): # 0:3 für feat, 3:6 für target
+            # i=4
+            # seq_size=3
+            idx = i + seq_size # 0+3
             
-            for i in range(len(sample)):
-                idx = i + seq_size #sequence end
-                
-                if (idx+K) > len(sample)-1: 
-                    break
-                
-                # add K positions to label to predict the K next timesteps
-                feat_seq, target_seq = sample[i:idx], sample[idx:(idx+K)]
-                x.append(feat_seq)
-                y.append(target_seq)
+            if (idx+K) > len(all_samples[1])-1: 
+                break
             
-        return array(x), array(y)
+            # add K positions to label to predict the K next timesteps
+            feat_seq, target_seq = all_samples[:,i:idx], all_samples[:,idx:(idx+K)] # target labels for CNN
+            x.append(feat_seq)
+            y.append(target_seq)
+            
+        return torch.Tensor(x), torch.Tensor(y)
 
 
     class get_data(Dataset):
